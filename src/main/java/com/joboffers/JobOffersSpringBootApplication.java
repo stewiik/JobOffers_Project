@@ -1,4 +1,4 @@
-package com.joboffers.domain;
+package com.joboffers;
 
 
 import org.springframework.boot.SpringApplication;

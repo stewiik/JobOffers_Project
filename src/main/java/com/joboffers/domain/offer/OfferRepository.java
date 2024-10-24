@@ -7,6 +7,7 @@ public interface OfferRepository {
     List<Offer> findAll();
 
     Optional<Offer> findById(String id);
+
     Offer save(Offer offer);
 
     boolean existsByOfferUrl(String offerUrl);

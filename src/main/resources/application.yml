@@ -11,3 +11,12 @@ offer:
         port: 5057
         readTimeout: 1000
         uri: http://ec2-3-120-147-150.eu-central-1.compute.amazonaws.com:5057/offers
+
+http:
+  offers:
+    scheduler:
+      request:
+        delay: PT3H
+
+scheduling:
+  enabled: true

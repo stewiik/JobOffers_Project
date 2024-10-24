@@ -1,4 +1,4 @@
-package com.junioroffers;
+package com.joboffers;
 
 public interface SampleJobOfferResponse {
 
