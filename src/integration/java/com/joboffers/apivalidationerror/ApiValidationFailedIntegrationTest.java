@@ -23,7 +23,7 @@ public class ApiValidationFailedIntegrationTest extends BaseIntegrationTest {
                         "salary": ""
                         }
                         """)
-                .contentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8")
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
         MvcResult mvcResult = perform.andExpect(status().isBadRequest()).andReturn();
