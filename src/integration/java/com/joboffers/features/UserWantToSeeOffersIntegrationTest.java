@@ -2,13 +2,13 @@ package com.joboffers.features;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.joboffers.BaseIntegrationTest;
 import com.joboffers.SampleJobOfferResponse;
+import com.joboffers.domain.loginandregister.dto.RegistrationResultDto;
 import com.joboffers.domain.offer.dto.OfferResponseDto;
+import com.joboffers.infrastructure.loginandregister.controller.dto.JwtResponseDto;
 import com.joboffers.infrastructure.offer.scheduler.HttpOffersScheduler;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -21,8 +21,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -64,10 +64,79 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
         assertThat(newOffers).isEmpty();
 
 
-        //step 3: user tried to get JWT token by requesting POST /token with username=someUser, password=somePassword and system returned UNAUTHORIZED(401)
-        //step 4: user made GET /offers with no jwt token and system returned UNAUTHORIZED(401)
-        //step 5: user made POST /register with username=someUser, password=somePassword and system registered user with status OK(200)
-        //step 6: user tried to get JWT token by requesting POST /token with username=someUser, password=somePassword and system returned OK(200) and jwttoken=AAAA.BBBB.CCC
+    //  step 3: user tried to get JWT token by requesting POST /token with username=someUser, password=somePassword and system returned UNAUTHORIZED(401)
+        // given & when
+        ResultActions failedLoginRequest = mockMvc.perform(post("/token")
+                .content("""
+                        {
+                        "username": "someUser",
+                        "password": "somePassword"
+                        }
+                        """.trim())
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+        );
+        // then
+        failedLoginRequest
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("""
+                        {
+                          "message": "Bad Credentials",
+                          "status": "UNAUTHORIZED"
+                        }
+                        """.trim()));
+
+
+    //  step 4: user made GET /offers with no jwt token and system returned UNAUTHORIZED(401)
+        // given & when
+        ResultActions failedGetOffersRequest = mockMvc.perform(get("/offers")
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+        );
+        // then
+        failedGetOffersRequest.andExpect(status().isForbidden());
+
+
+        //step 5: user made POST /register with username=someUser, password=somePassword and system registered user with status CREATED(201)
+        // given & when
+        ResultActions registerAction = mockMvc.perform(post("/register")
+                .content("""
+                        {
+                        "username": "someUser",
+                        "password": "somePassword"
+                        }
+                        """.trim())
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+        );
+        // then
+        MvcResult registerActionResult = registerAction.andExpect(status().isCreated()).andReturn();
+        String registerActionResultJson = registerActionResult.getResponse().getContentAsString();
+        RegistrationResultDto registrationResultDto = objectMapper.readValue(registerActionResultJson, RegistrationResultDto.class);
+        assertAll(
+                () -> assertThat(registrationResultDto.username()).isEqualTo("someUser"),
+                () -> assertThat(registrationResultDto.created()).isTrue(),
+                () -> assertThat(registrationResultDto.id()).isNotNull()
+        );
+
+
+    //  step 6: user tried to get JWT token by requesting POST /token with username=someUser, password=somePassword and system returned OK(200) and jwttoken=AAAA.BBBB.CCC
+        // given & when
+        ResultActions successLoginRequest = mockMvc.perform(post("/token")
+                .content("""
+                        {
+                        "username": "someUser",
+                        "password": "somePassword"
+                        }
+                        """.trim())
+                .contentType(MediaType.APPLICATION_JSON_VALUE)
+        );
+        // then
+        MvcResult mvcResult = successLoginRequest.andExpect(status().isOk()).andReturn();
+        String json = mvcResult.getResponse().getContentAsString();
+        JwtResponseDto jwtResponse = objectMapper.readValue(json, JwtResponseDto.class);
+        String token = jwtResponse.token();
+        assertAll(
+                () -> assertThat(jwtResponse.username()).isEqualTo("someUser"),
+                () -> assertThat(token).matches(Pattern.compile("^([A-Za-z0-9-_=]+\\.)+([A-Za-z0-9-_=])+\\.?$"))
+        );
 
 
     //  step 7: user made GET /offers with header “Authorization: Bearer AAAA.BBBB.CCC” and system returned OK(200) with 0 offers
@@ -75,6 +144,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
         String offersUrl = "/offers";
         // when
         ResultActions perform = mockMvc.perform(get(offersUrl)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
@@ -104,6 +174,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
    //   step 10: user made GET /offers with header “Authorization: Bearer AAAA.BBBB.CCC” and system returned OK(200) with 2 offers with ids: 1000 and 2000
         // given && when
         ResultActions performGetForTwoOffers = mockMvc.perform(get(offersUrl)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
@@ -122,7 +193,9 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
 
     //  step 11: user made GET /offers/9999 and system returned NOT_FOUND(404) with message “Offer with id 9999 not found”
         //given && when
-        ResultActions performGetOffersWithNotExistingId = mockMvc.perform(get("/offers/9999"));
+        ResultActions performGetOffersWithNotExistingId = mockMvc.perform(get("/offers/9999")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON_VALUE));
         //then
         performGetOffersWithNotExistingId.andExpect(status().isNotFound())
                 .andExpect(content().json("""
@@ -138,6 +211,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
         String offerIdAddedToDb = expectedFirstOffer.id();
         // when
         ResultActions performGetOfferById = mockMvc.perform(get("/offers/" + offerIdAddedToDb)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
@@ -171,6 +245,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
         OfferResponseDto expectedFourthOffer = twoMoreOffers.get(1);
         // when
         ResultActions performGetOffers = mockMvc.perform(get(offersUrl)
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
@@ -189,6 +264,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
         // given
         // when
         ResultActions performPostOffersWithOneOffer = mockMvc.perform(post("/offers")
+                .header("Authorization", "Bearer " + token)
                 .content("""
                         {
                         "companyName": "someCompany",
@@ -219,6 +295,7 @@ public class UserWantToSeeOffersIntegrationTest extends BaseIntegrationTest impl
     //  step 17: user made GET /offers with header “Authorization: Bearer AAAA.BBBB.CCC” and system returned OK(200) with 1 offer
         // given & when
         ResultActions performGetOffer = mockMvc.perform(get("/offers")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON_VALUE)
         );
         // then
