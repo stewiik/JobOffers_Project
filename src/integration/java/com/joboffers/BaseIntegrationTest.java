@@ -3,10 +3,12 @@ package com.joboffers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -25,6 +27,9 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 public class BaseIntegrationTest {
 
     public static final String WIRE_MOCK_HOST = "http://localhost";
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Autowired
     public ObjectMapper objectMapper;
