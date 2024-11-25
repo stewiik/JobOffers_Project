@@ -1,8 +1,15 @@
 spring:
+  cache:
+    type: redis
+    redis:
+      time-to-live: PT60M
   data:
     mongodb:
       auto-index-creation: true
       uri: mongodb://admin:admin@localhost:27017/offers
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:63792}
   mvc:
     pathmatch:
       matching-strategy: ANT_PATH_MATCHER
