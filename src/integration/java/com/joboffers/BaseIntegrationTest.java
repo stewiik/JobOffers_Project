@@ -29,9 +29,6 @@ public class BaseIntegrationTest {
     public static final String WIRE_MOCK_HOST = "http://localhost";
 
     @Autowired
-    private MongoTemplate mongoTemplate;
-
-    @Autowired
     public ObjectMapper objectMapper;
 
     @Autowired

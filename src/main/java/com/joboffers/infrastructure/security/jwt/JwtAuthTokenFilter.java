@@ -28,7 +28,6 @@ public class JwtAuthTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         String requestPath = request.getServletPath();
 
-        // Pomijanie walidacji JWT dla Swaggera
         if (requestPath.startsWith("/swagger-ui") ||
                 requestPath.startsWith("/v3/api-docs") ||
                 requestPath.startsWith("/swagger-resources") ||
